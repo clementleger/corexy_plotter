@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import argparse
 import math
-from gcodeparser import GcodeParser, GcodeLine
+from gcodeparser import parse_gcode_lines, GcodeLine
 
 def gcode_merge(args, position_1, position_2):
 	if (not ("X" in position_1 and "X" in position_2 and
@@ -23,19 +23,19 @@ def is_g1(gcode):
 	return gcode != None and gcode.command == ('G', 1)
 
 def gen_g4(delay, comment = None):
-	return GcodeLine(command=('G', 4), params={"P": delay}, comment=comment)
+	return GcodeLine(command=('G', 4), params={"P": delay}, comment=comment, line_index=0)
 
 def gen_m280(angle, comment = None):
-	return GcodeLine(command=('M', 280), params={"P": 0, 'S': angle}, comment=comment)
+	return GcodeLine(command=('M', 280), params={"P": 0, 'S': angle}, comment=comment, line_index=0)
 
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--down-angle", help="Servo angle when down",
-			type=int, default=160)
+			type=int, default=20)
 	parser.add_argument("--down-delay", help="Servo down delay",
 			type=int, default=100)
 	parser.add_argument("--up-angle", help="Servo angle when up",
-			type=int, default=143)
+			type=int, default=0)
 	parser.add_argument("--up-delay", help="Servo up delay",
 			type=int, default=100)
 	parser.add_argument("--merge-threshold",
@@ -52,8 +52,7 @@ def main():
 
 	out = open(args.output, "w")
 
-	parsed_gcode = GcodeParser(gcode)
-	prev_line = GcodeLine(command=('X', 0), params={}, comment="")
+	prev_line = GcodeLine(command=('X', 0), params={}, comment="", line_index=0)
 	servo_up_sequence = [
 		gen_g4(0, "Sync"),
 		gen_m280(args.up_angle, "Servo up"),
@@ -65,7 +64,7 @@ def main():
 		gen_g4(args.down_delay, "Wait servo down")
 	]
 
-	for line in parsed_gcode.lines:
+	for line in parse_gcode_lines(gcode, include_comments=True):
 		line_is_g0 = is_g0(line)
 		# Consecutive G1/G0 commands
 		if line_is_g0 and is_g1(prev_line):
